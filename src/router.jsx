@@ -9,34 +9,34 @@ import UserDetail from './pages/UserDetail'
 
 const router = createBrowserRouter([
   {
-    path: routerConfig.root.path,
+    path: '/',
     element: <RootLayout />,
-    handle: routerConfig.root.handle,
+    handle: routerConfig.root,
     children: [
       {
         index: true,
         element: <Home />,
-        handle: routerConfig.home.handle,
+        handle: routerConfig.home,
       },
       {
-        path: routerConfig.about.path,
+        path: 'about',
         element: <About />,
-        handle: routerConfig.about.handle,
+        handle: routerConfig.about,
       },
       {
-        path: routerConfig.users.path,
+        path: 'users',
         element: <UsersLayout />,
-        handle: routerConfig.users.handle,
+        handle: routerConfig.users,
         children: [
           {
             index: true,
             element: <UsersList />,
-            handle: routerConfig.usersList.handle,
+            handle: routerConfig.usersList,
           },
           {
-            path: routerConfig.userDetail.path,
+            path: ':id',
             element: <UserDetail />,
-            handle: routerConfig.userDetail.handle,
+            handle: routerConfig.userDetail,
           },
         ],
       },
