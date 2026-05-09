@@ -11,32 +11,32 @@ const router = createBrowserRouter([
   {
     path: '/',
     element: <RootLayout />,
-    handle: routerConfig.root,
+    handle: routerConfig['ROOT'],
     children: [
       {
         index: true,
         element: <Home />,
-        handle: routerConfig.home,
+        handle: routerConfig['HOME'],
       },
       {
         path: 'about',
         element: <About />,
-        handle: routerConfig.about,
+        handle: routerConfig['ABOUT'],
       },
       {
         path: 'users',
         element: <UsersLayout />,
-        handle: routerConfig.users,
+        handle: routerConfig['USERS'],
         children: [
           {
             index: true,
             element: <UsersList />,
-            handle: routerConfig.usersList,
+            handle: routerConfig['USERS.LIST'],
           },
           {
             path: ':id',
             element: <UserDetail />,
-            handle: routerConfig.userDetail,
+            handle: routerConfig['USERS.DETAIL'],
           },
         ],
       },
