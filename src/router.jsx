@@ -13,9 +13,23 @@ import UserReviews from './pages/UserReviews'
 import ProductsList from './pages/ProductsList'
 import ProductCategory from './pages/ProductCategory'
 
+/**
+ * 路由結構說明：
+ *
+ * Layout 路由分為兩種：
+ *   有路徑 layout（path: '/'）→ RootLayout，所有頁面的最外層
+ *   無路徑 layout（無 path）  → UsersLayout、UserDetail、ProductsLayout
+ *                              只負責包裝 UI（Tabs、側邊欄），不佔路由層
+ *
+ * 子路由全部使用完整絕對路徑（來自 routerConfig.path），不依賴巢狀相對路徑。
+ * 這讓 routerConfig 成為路徑的單一來源，router.jsx 只負責組裝結構。
+ *
+ * useMatches() 仍會包含無路徑 layout 的 handle，
+ * 因為 React Router 會將所有 matched route（含 pathless）加入結果。
+ */
 const router = createBrowserRouter([
   {
-    path: '/',
+    path: routerConfig['ROOT'].path,    // '/'
     element: <RootLayout />,
     handle: routerConfig['ROOT'],
     children: [
@@ -25,37 +39,39 @@ const router = createBrowserRouter([
         handle: routerConfig['HOME'],
       },
       {
-        path: 'about',
+        path: routerConfig['ABOUT'].path,   // '/about'
         element: <About />,
         handle: routerConfig['ABOUT'],
       },
+
+      // ── Users ──────────────────────────────────────────────
+      // pathless layout：UsersLayout 不佔路由，只包側邊欄 UI
       {
-        path: 'users',
         element: <UsersLayout />,
         handle: routerConfig['USERS'],
         children: [
           {
-            index: true,
+            path: routerConfig['USERS.LIST'].path,    // '/users'
             element: <UsersList />,
             handle: routerConfig['USERS.LIST'],
           },
+          // pathless layout：UserDetail 不佔路由，只包 Tabs UI
           {
-            path: ':id',
             element: <UserDetail />,
             handle: routerConfig['USERS.DETAIL'],
             children: [
               {
-                index: true,
+                path: routerConfig['USERS.DETAIL.PROFILE'].path,  // '/users/:id'
                 element: <UserProfile />,
                 handle: routerConfig['USERS.DETAIL.PROFILE'],
               },
               {
-                path: 'orders',
+                path: routerConfig['USERS.DETAIL.ORDERS'].path,   // '/users/:id/orders'
                 element: <UserOrders />,
                 handle: routerConfig['USERS.DETAIL.ORDERS'],
               },
               {
-                path: 'reviews',
+                path: routerConfig['USERS.DETAIL.REVIEWS'].path,  // '/users/:id/reviews'
                 element: <UserReviews />,
                 handle: routerConfig['USERS.DETAIL.REVIEWS'],
               },
@@ -63,18 +79,20 @@ const router = createBrowserRouter([
           },
         ],
       },
+
+      // ── Products ───────────────────────────────────────────
+      // pathless layout：ProductsLayout 不佔路由，只包側邊欄 UI
       {
-        path: 'products',
         element: <ProductsLayout />,
         handle: routerConfig['PRODUCTS'],
         children: [
           {
-            index: true,
+            path: routerConfig['PRODUCTS.LIST'].path,      // '/products'
             element: <ProductsList />,
             handle: routerConfig['PRODUCTS.LIST'],
           },
           {
-            path: ':category',
+            path: routerConfig['PRODUCTS.CATEGORY'].path,  // '/products/:category'
             element: <ProductCategory />,
             handle: routerConfig['PRODUCTS.CATEGORY'],
           },

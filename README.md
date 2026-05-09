@@ -95,41 +95,56 @@ KEY → handle 資料   +    path 層級結構
              執行期：useMatches() 同時取得 pathname + handle
 ```
 
-### routerConfig.ts — handle 資料層
+### routerConfig.ts — 單一來源（handle + path）
 
 ```ts
 const routerConfig = {
-  'PRODUCTS.CATEGORY': {
-    key: 'products-category',   // 唯一識別值（具名路由的「名稱」）
-    title: '分類詳情',           // Breadcrumb 顯示文字
-    description: '...',         // FloatButton Popover 說明內容
+  'USERS.DETAIL.ORDERS': {
+    key: 'users-detail-orders',
+    path: '/users/:id/orders',  // ← 完整絕對路徑，供導航與 router 使用
+    title: '購買紀錄',
+    description: '...',
   },
 } as const
 ```
 
-- **`as const`**：所有值推導為 literal type，IDE 自動補全 key，不會拼錯
-- **KEY 格式**：使用大寫 + 點記法（`USERS.DETAIL`）表達路由層級，一目了然
-- **職責**：只管 handle 資料，不管 path
+- **`as const`**：所有值推導為 literal type，IDE 自動補全，不會拼錯
+- **KEY 格式**：大寫 + 點記法（`USERS.DETAIL.ORDERS`）表達路由層級
+- **path**：完整絕對路徑（含動態參數），不需另維護 routePaths 對應表
+- **職責**：handle 資料 + path 樣板，是整個路由系統的單一來源
 
-### router.jsx — 路由層級定義
+### router.jsx — Pathless Layout + 完整路徑
 
 ```jsx
+// Layout 路由（無 path）只負責包裝 UI，不參與路徑匹配
 {
-  path: 'products',
-  element: <ProductsLayout />,
-  handle: routerConfig['PRODUCTS'],       // ← 直接掛入 handle
+  element: <UsersLayout />,           // pathless：只包側邊欄
+  handle: routerConfig['USERS'],
   children: [
     {
-      path: ':category',
-      element: <ProductCategory />,
-      handle: routerConfig['PRODUCTS.CATEGORY'],
+      path: routerConfig['USERS.LIST'].path,    // '/users'
+      element: <UsersList />,
+      handle: routerConfig['USERS.LIST'],
+    },
+    {
+      element: <UserDetail />,        // pathless：只包 Tabs UI
+      handle: routerConfig['USERS.DETAIL'],
+      children: [
+        {
+          path: routerConfig['USERS.DETAIL.ORDERS'].path,  // '/users/:id/orders'
+          element: <UserOrders />,
+          handle: routerConfig['USERS.DETAIL.ORDERS'],
+        },
+      ],
     },
   ],
 }
 ```
 
-- **職責**：只管 path 與元件對應，handle 資料來自 routerConfig
-- 新增路由只需在 routerConfig 加一筆，再在 router 掛上即可
+- **Pathless layout**：layout 元件（UsersLayout、UserDetail）不指定 path，只繼承 UI
+- **子路由使用完整路徑**：`'/users/:id/orders'` 而非巢狀的 `'orders'`
+- **useMatches() 仍包含 pathless layout**：React Router 會將所有 matched routes（含無路徑）加入結果，handle.key 正常運作
+- 新增路由只需在 routerConfig 加一筆，router.jsx 引用即可
 
 ---
 
@@ -147,9 +162,8 @@ getHandleByKey('home')
 // → { key: 'home', title: '首頁', description: '...' }
 ```
 
-> ⚠️ **注意**：`getHandleByKey` 只能取得 handle 資料（title、description）。
-> URL path 由 `router.jsx` 的層級結構決定，動態參數（`:id`、`:category`）也無法預先得知。
-> **若需實際 URL，請使用 `useMatches()`**，它在執行期提供已解析完整路徑。
+> path 現在與 handle 統一存於 routerConfig，`getRouteByKey` 可同時取得兩者。
+> 動態參數（`:id`、`:category`）仍需搭配 `generatePath()` 填入實際值。
 
 ### useMatches — 執行期取得完整路由資訊
 

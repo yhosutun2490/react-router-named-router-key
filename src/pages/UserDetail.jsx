@@ -1,31 +1,36 @@
 import { useParams, useMatches, useNavigate, Outlet } from 'react-router-dom'
+import { generatePath } from 'react-router-dom'
 import { Tabs } from 'antd'
 import routerConfig from '../routerConfig'
 
 /**
- * UserDetail — 使用者詳細頁（Tab layout）
+ * UserDetail — 使用者詳細頁（pathless layout + Tabs）
  *
- * 此元件同時是 layout（含 <Outlet>）也是 Tab 控制器。
+ * 此元件為「無路徑 layout 路由」：
+ *   router.jsx 中不指定 path，只有 element 與 children
+ *   useMatches() 仍會包含此層的 handle（key: 'users-detail'）
  *
- * handle 判斷邏輯：
- *   useMatches() 回傳從根到當前路由的所有 matched routes。
- *   當 URL 為 /users/1/orders 時，matches 包含：
- *     [ROOT, USERS, USERS.DETAIL, USERS.DETAIL.ORDERS]
- *
- *   取最深層有 handle.key 的 match → 就是當前 active tab 的路由
- *   將其 handle.key 設為 Tabs 的 activeKey，即可自動對應到正確 Tab
- *
- * handle 放置原則：
- *   - USERS.DETAIL     → 放在此 layout 路由，代表「詳細頁」這個層級
- *   - USERS.DETAIL.*   → 放在各 Tab 子路由，代表「哪個 Tab 被選中」
- *   Tab 的 key 值直接使用 routerConfig 的 handle.key，單一來源，不重複定義。
+ * Tab 路徑來自 routerConfig.path（完整絕對路徑），
+ * 搭配 generatePath 填入 :id，產生實際 URL 並 navigate。
+ * 路徑改變時只需更新 routerConfig，元件不需動。
  */
 
-// Tab 定義從 routerConfig 取，key 與 handle.key 一致
 const TAB_ITEMS = [
-  { key: routerConfig['USERS.DETAIL.PROFILE'].key, label: routerConfig['USERS.DETAIL.PROFILE'].title, path: '' },
-  { key: routerConfig['USERS.DETAIL.ORDERS'].key,  label: routerConfig['USERS.DETAIL.ORDERS'].title,  path: 'orders' },
-  { key: routerConfig['USERS.DETAIL.REVIEWS'].key, label: routerConfig['USERS.DETAIL.REVIEWS'].title, path: 'reviews' },
+  {
+    key:   routerConfig['USERS.DETAIL.PROFILE'].key,
+    label: routerConfig['USERS.DETAIL.PROFILE'].title,
+    path:  routerConfig['USERS.DETAIL.PROFILE'].path,   // '/users/:id'
+  },
+  {
+    key:   routerConfig['USERS.DETAIL.ORDERS'].key,
+    label: routerConfig['USERS.DETAIL.ORDERS'].title,
+    path:  routerConfig['USERS.DETAIL.ORDERS'].path,    // '/users/:id/orders'
+  },
+  {
+    key:   routerConfig['USERS.DETAIL.REVIEWS'].key,
+    label: routerConfig['USERS.DETAIL.REVIEWS'].title,
+    path:  routerConfig['USERS.DETAIL.REVIEWS'].path,   // '/users/:id/reviews'
+  },
 ]
 
 export default function UserDetail() {
@@ -33,12 +38,11 @@ export default function UserDetail() {
   const matches = useMatches()
   const navigate = useNavigate()
 
-  // 最深層 match 的 handle.key = 當前 active tab
   const activeKey = [...matches].reverse().find((m) => m.handle?.key)?.handle?.key
 
   const handleTabChange = (key) => {
     const tab = TAB_ITEMS.find((t) => t.key === key)
-    if (tab) navigate(tab.path)
+    if (tab) navigate(generatePath(tab.path, { id }))
   }
 
   return (
@@ -47,14 +51,11 @@ export default function UserDetail() {
       <p className="text-gray-400 text-sm mb-4">
         動態參數 <code className="bg-gray-100 px-1.5 py-0.5 rounded font-mono">:id = {id}</code>
       </p>
-
       <Tabs
         activeKey={activeKey}
         onChange={handleTabChange}
         items={TAB_ITEMS.map(({ key, label }) => ({ key, label }))}
       />
-
-      {/* 當前 Tab 的子路由內容 */}
       <div className="mt-2">
         <Outlet />
       </div>
