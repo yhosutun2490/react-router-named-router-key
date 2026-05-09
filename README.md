@@ -173,6 +173,62 @@ const matches = useMatches()
 
 React Router v6 沒有內建 `navigate('route-name')`，但可透過以下方式實作以 key 導航。
 
+### 跨層級導航：useNavigateByKey
+
+任何元件只需知道 handle key，不需要知道目標 URL。
+
+```
+Home → navigateByKey('users-detail-orders', { id: '2' })
+                ↓
+        routePaths 查 'users-detail-orders'
+        → '/users/:id/orders'
+                ↓
+        generatePath('/users/:id/orders', { id: '2' })
+        → navigate('/users/2/orders')
+```
+
+```js
+// 任何元件內
+const navigateByKey = useNavigateByKey()
+
+// 靜態路由
+navigateByKey('about')
+
+// 動態路由（傳 params）
+navigateByKey('users-detail', { id: '3' })
+
+// 靜態子路由 Tab（傳 params）
+navigateByKey('users-detail-orders', { id: '2' })
+// → /users/2/orders
+
+// QP Tab（tabConfig 反查，自動附加 ?tab=）
+// 若 'users-detail-orders' 在 tabConfig 的 QP 模式下
+// → /users/2?tab=orders
+```
+
+#### routePaths.ts — handle key → path pattern
+
+```ts
+export const routePaths: Partial<Record<RouteHandleKey, string>> = {
+  'home':                   '/',
+  'users-list':             '/users',
+  'users-detail':           '/users/:id',
+  'users-detail-orders':    '/users/:id/orders',   // 靜態子路由 Tab
+  'products-category':      '/products/:category',
+}
+```
+
+#### getPathByKey — 查詢順序
+
+```
+1. routePaths 直接對應        → 靜態路由 / 靜態子路由 Tab
+2. tabConfig 反查（QP Tab）   → 父路由 path + searchParams: { tab: tabKey }
+3. tabConfig 反查（paramKey） → 父路由 path + /tabKey（動態路由舊專案）
+4. 找不到 → console.warn
+```
+
+---
+
 ### 方案一：維護靜態 key → path 對應表
 
 適用於**無動態參數**的靜態路由：
@@ -782,8 +838,10 @@ src/
 ├── tabConfig.ts             # Query Param Tab handle 設定（以路由 handle.key 為索引）
 ├── router.jsx               # 路由結構定義（path 層級 + handle 掛載）
 ├── main.jsx                 # RouterProvider 入口
+├── routePaths.ts            # handle key → path pattern 對應表（跨層導航用）
 ├── hooks/
-│   └── useActiveHandle.js   # useMatches + useSearchParams → 解析當前有效 handle
+│   ├── useActiveHandle.js   # useMatches + useSearchParams → 解析當前有效 handle
+│   └── useNavigateByKey.js  # navigateByKey(key, params) → 以 key 跨層導航
 ├── layouts/
 │   ├── RootLayout.jsx       # 全域 Layout（Navbar、debug bar、Breadcrumb、PageContainer）
 │   ├── UsersLayout.jsx      # /users 巢狀 Layout
