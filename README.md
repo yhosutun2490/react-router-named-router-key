@@ -218,6 +218,105 @@ navigate(productsMatch.pathname)  // → '/products'
 
 ---
 
+## 路由設計原則：Tab 子頁應用靜態路徑，而非動態路由
+
+### 情境：使用者詳細頁有三個 Tab
+
+```
+個人資料 ／ 購買紀錄 ／ 評論紀錄
+```
+
+### ❌ 錯誤做法：用 `:info` 動態路由切換 Tab
+
+```
+/users/:id/:info
+```
+
+```jsx
+// router.jsx — 三個 Tab 共用同一個路由物件
+{
+  path: ':info',            // 'profile' | 'orders' | 'reviews' 全打這
+  element: <UserDetail />,
+  handle: routerConfig['USERS.DETAIL'],  // 只能放一個 handle，無法區分 Tab
+}
+
+// UserDetail.jsx — 元件內部自己判斷
+const { info } = useParams()
+if (info === 'profile') return <Profile />
+if (info === 'orders')  return <Orders />
+```
+
+**問題：**
+
+| 問題 | 說明 |
+|------|------|
+| handle 無法各自設定 | 三個 Tab 共用同一路由，`useMatches()` 分不出哪個 Tab 被選中 |
+| 路由失去語意 | `:info` 可接受任意字串，打錯也不報錯，router 不做限制 |
+| 判斷邏輯污染元件 | Tab 顯示邏輯全擠在元件內部，if/switch 隨頁面增長 |
+| 無法獨立設定 loader / errorElement | 三個 Tab 若資料來源不同，無法在 router 層個別處理 |
+
+---
+
+### ✅ 正確做法：每個 Tab 對應獨立靜態路由
+
+```
+/users/:id/profile    → USERS.DETAIL.PROFILE
+/users/:id/orders     → USERS.DETAIL.ORDERS
+/users/:id/reviews    → USERS.DETAIL.REVIEWS
+```
+
+```jsx
+// router.jsx — 每個 Tab 是獨立路由，各自掛 handle
+{
+  path: ':id',
+  element: <UserDetail />,          // 升級為 layout（含 Tabs + Outlet）
+  handle: routerConfig['USERS.DETAIL'],
+  children: [
+    { index: true,      element: <UserProfile />, handle: routerConfig['USERS.DETAIL.PROFILE'] },
+    { path: 'orders',   element: <UserOrders />,  handle: routerConfig['USERS.DETAIL.ORDERS'] },
+    { path: 'reviews',  element: <UserReviews />, handle: routerConfig['USERS.DETAIL.REVIEWS'] },
+  ],
+}
+```
+
+```jsx
+// UserDetail.jsx — useMatches() 直接告知哪個 Tab 被選中，元件零判斷邏輯
+const activeKey = [...matches].reverse().find(m => m.handle?.key)?.handle?.key
+// /users/1/orders → activeKey = 'users-detail-orders'
+
+<Tabs activeKey={activeKey} onChange={handleTabChange} />
+<Outlet />   {/* Tab 內容由子路由渲染，UserDetail 不需要知道內容 */}
+```
+
+**優點：**
+
+| 優點 | 說明 |
+|------|------|
+| handle 各自獨立 | 每個 Tab 有自己的 key / title / description |
+| `useMatches()` 精確識別 | 最深層 handle.key 就是當前 Tab，不需要任何判斷 |
+| 元件職責單一 | UserDetail 只管 Tabs UI，內容交給子路由元件 |
+| 可獨立擴充 | 各 Tab 可各自加 loader、errorElement、guard |
+| URL 可書籤化 | 每個 Tab 有獨立 URL，重新整理或分享連結都能還原狀態 |
+
+---
+
+### 動態路由 vs 靜態路徑的判斷準則
+
+```
+用靜態路徑：Tab 數量固定、名稱固定、由開發者決定
+  /users/:id/profile   ✅
+  /users/:id/orders    ✅
+  /users/:id/reviews   ✅
+
+用動態路由：內容由資料驅動、數量不固定、來自 API 或資料庫
+  /users/:id           ✅  id 來自資料庫
+  /products/:category  ✅  category 來自商品分類資料
+  /posts/:slug         ✅  slug 來自文章內容
+  /users/:id/:info     ❌  info 只是幾個固定 Tab，不需要動態
+```
+
+---
+
 ## 元件說明
 
 ### PageContainer（全域）
@@ -262,7 +361,10 @@ src/
 │   ├── Home.jsx
 │   ├── About.jsx
 │   ├── UsersList.jsx
-│   ├── UserDetail.jsx
+│   ├── UserDetail.jsx           # Tab layout（useMatches activeKey）
+│   ├── UserProfile.jsx          # Tab：個人資料
+│   ├── UserOrders.jsx           # Tab：購買紀錄
+│   ├── UserReviews.jsx          # Tab：評論紀錄
 │   ├── ProductsList.jsx
 │   └── ProductCategory.jsx
 └── components/
