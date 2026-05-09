@@ -7,6 +7,9 @@ import Home from './pages/Home'
 import About from './pages/About'
 import UsersList from './pages/UsersList'
 import UserDetail from './pages/UserDetail'
+import UserProfile from './pages/UserProfile'
+import UserOrders from './pages/UserOrders'
+import UserReviews from './pages/UserReviews'
 import ProductsList from './pages/ProductsList'
 import ProductCategory from './pages/ProductCategory'
 
@@ -40,6 +43,23 @@ const router = createBrowserRouter([
             path: ':id',
             element: <UserDetail />,
             handle: routerConfig['USERS.DETAIL'],
+            children: [
+              {
+                index: true,
+                element: <UserProfile />,
+                handle: routerConfig['USERS.DETAIL.PROFILE'],
+              },
+              {
+                path: 'orders',
+                element: <UserOrders />,
+                handle: routerConfig['USERS.DETAIL.ORDERS'],
+              },
+              {
+                path: 'reviews',
+                element: <UserReviews />,
+                handle: routerConfig['USERS.DETAIL.REVIEWS'],
+              },
+            ],
           },
         ],
       },

@@ -34,7 +34,25 @@ const routerConfig = {
   'USERS.DETAIL': {
     key: 'users-detail',
     title: '詳細資訊',
-    description: '顯示單一使用者的詳細資訊，路由參數 :id 對應使用者編號。',
+    description: '使用者詳細頁，包含個人資料、購買紀錄、評論紀錄三個子頁籤。',
+  },
+
+  'USERS.DETAIL.PROFILE': {
+    key: 'users-detail-profile',
+    title: '個人資料',
+    description: '使用者的基本個人資訊，包含姓名、信箱、註冊日期等。',
+  },
+
+  'USERS.DETAIL.ORDERS': {
+    key: 'users-detail-orders',
+    title: '購買紀錄',
+    description: '使用者的歷史訂單列表，可查詢各筆訂單的狀態與明細。',
+  },
+
+  'USERS.DETAIL.REVIEWS': {
+    key: 'users-detail-reviews',
+    title: '評論紀錄',
+    description: '使用者對商品發表過的評論列表。',
   },
 
   'PRODUCTS': {
