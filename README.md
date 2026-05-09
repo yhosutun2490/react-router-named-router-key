@@ -219,8 +219,9 @@ React Router v6 沒有內建 `navigate('route-name')`，但可透過以下方式
 ```
 Home → navigateByKey('users-detail-orders', { id: '2' })
                 ↓
-        routePaths 查 'users-detail-orders'
-        → '/users/:id/orders'
+        getPathByKey('users-detail-orders')
+        → routerConfig 查 key = 'users-detail-orders'
+        → { path: '/users/:id/orders' }
                 ↓
         generatePath('/users/:id/orders', { id: '2' })
         → navigate('/users/2/orders')
@@ -245,49 +246,48 @@ navigateByKey('users-detail-orders', { id: '2' })
 // → /users/2?tab=orders
 ```
 
-#### routePaths.ts — handle key → path pattern
+#### routePaths.ts — 只剩查詢邏輯，不再維護獨立對應表
+
+path 已統一存於 `routerConfig`，`routePaths.ts` 只負責 `getPathByKey` 查詢函式。
 
 ```ts
-export const routePaths: Partial<Record<RouteHandleKey, string>> = {
-  'home':                   '/',
-  'users-list':             '/users',
-  'users-detail':           '/users/:id',
-  'users-detail-orders':    '/users/:id/orders',   // 靜態子路由 Tab
-  'products-category':      '/products/:category',
-}
+// 不再需要手動維護這份對應表（已移除）
+// export const routePaths = { 'users-detail-orders': '/users/:id/orders', ... }
+
+// 改由 routerConfig 提供 path
+import { getRouteByKey } from './routerConfig'
+const route = getRouteByKey('users-detail-orders')
+// → { key: 'users-detail-orders', path: '/users/:id/orders', title: '購買紀錄', ... }
 ```
 
 #### getPathByKey — 查詢順序
 
 ```
-1. routePaths 直接對應        → 靜態路由 / 靜態子路由 Tab
-2. tabConfig 反查（QP Tab）   → 父路由 path + searchParams: { tab: tabKey }
-3. tabConfig 反查（paramKey） → 父路由 path + /tabKey（動態路由舊專案）
-4. 找不到 → console.warn
+1. routerConfig.path 直接對應  → 靜態路由 / 靜態子路由 Tab（單一來源）
+2. tabConfig 反查（QP Tab）    → 父路由 path + searchParams: { tab: tabKey }
+3. tabConfig 反查（paramKey）  → 父路由 path + /tabKey（動態路由舊專案）
+4. 找不到 → null + console.warn
 ```
 
 ---
 
-### 方案一：維護靜態 key → path 對應表
+### 方案一：useNavigateByKey（推薦，本專案實作）
 
-適用於**無動態參數**的靜態路由：
+path 統一存於 `routerConfig`，`useNavigateByKey` 透過 `getPathByKey` 查詢後導航。
+詳見上方「跨層級導航：useNavigateByKey」章節。
+
+### 方案二：generatePath + 參數（直接使用 routerConfig path）
 
 ```ts
-// src/routePaths.ts
-export const routePaths: Record<string, string> = {
-  'home':          '/',
-  'about':         '/about',
-  'users-list':    '/users',
-  'products-list': '/products',
-}
+import { generatePath, useNavigate } from 'react-router-dom'
+import routerConfig from './routerConfig'
 
-// 使用
-import { useNavigate } from 'react-router-dom'
 const navigate = useNavigate()
-navigate(routePaths['products-list'])
-```
 
-### 方案二：generatePath + 參數（動態路由）
+// 從 routerConfig 取 path，再填入動態參數
+navigate(generatePath(routerConfig['USERS.DETAIL.ORDERS'].path, { id: '42' }))
+// → /users/42/orders
+```
 
 ```ts
 import { generatePath, useNavigate } from 'react-router-dom'
