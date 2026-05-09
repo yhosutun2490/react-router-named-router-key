@@ -361,36 +361,53 @@ const activeKey = [...matches].reverse().find(m => m.handle?.key)?.handle?.key
                                                                ← 永遠只有父路由的 key
 ```
 
-#### 解法：把 Tab handle 巢狀放在父路由 handle 的 `tabs` 欄位
+#### 解法：tabConfig 獨立設定檔 + useActiveHandle hook
+
+routerConfig 維持純路由 handle，Tab handle 另開 `tabConfig.ts` 管理，兩份設定職責分離。
 
 ```ts
-// routerConfig.ts
+// routerConfig.ts — 不變，純路由 handle
 'USERS.DETAIL': {
   key: 'users-detail',
   title: '詳細資訊',
-  tabs: {                              // ← Query Param Tab 的 handle 定義在這
-    profile: { key: 'users-detail-profile', title: '個人資料', description: '...' },
-    orders:  { key: 'users-detail-orders',  title: '購買紀錄', description: '...' },
-    reviews: { key: 'users-detail-reviews', title: '評論紀錄', description: '...' },
-  },
+  description: '...',
+  // ← 不混入 tabs，維持單一職責
 },
 ```
 
-#### useActiveHandle — 同時讀取 useMatches + useSearchParams
+```ts
+// tabConfig.ts — 專責 Query Param Tab 的 handle 設定
+// 頂層 key = 對應路由的 handle.key（作為查詢索引）
+const tabConfig = {
+  'users-detail': {
+    defaultTab: 'profile',             // 未帶 ?tab= 時的預設 Tab
+    tabs: {
+      profile: { key: 'users-detail-profile', title: '個人資料', description: '...' },
+      orders:  { key: 'users-detail-orders',  title: '購買紀錄', description: '...' },
+      reviews: { key: 'users-detail-reviews', title: '評論紀錄', description: '...' },
+    },
+  },
+} as const
+```
+
+#### useActiveHandle — 跨兩份 config 解析當前有效 handle
 
 ```js
 // hooks/useActiveHandle.js
+import tabConfig from '../tabConfig'
+
 export function useActiveHandle() {
   const matches = useMatches()
   const [searchParams] = useSearchParams()
 
-  const currentMatch = [...matches].reverse().find((m) => m.handle?.key)
-  const routeHandle = currentMatch?.handle
+  const routeHandle = [...matches].reverse().find((m) => m.handle?.key)?.handle
 
-  // 若 handle 有 tabs 且 URL 帶有 ?tab=xxx，回傳 Tab 的獨立 handle
-  const tabKey = searchParams.get('tab')
-  if (tabKey && routeHandle?.tabs?.[tabKey]) {
-    return routeHandle.tabs[tabKey]
+  // 以路由 handle.key 查 tabConfig，確認此路由是否有 QP Tab 設定
+  const tabConfigEntry = tabConfig[routeHandle?.key]
+  if (tabConfigEntry) {
+    const tabKey = searchParams.get('tab') ?? tabConfigEntry.defaultTab
+    const tabHandle = tabConfigEntry.tabs[tabKey]
+    if (tabHandle) return tabHandle
   }
 
   return routeHandle ?? null
@@ -490,9 +507,12 @@ useMatches()
 
 ```
 src/
-├── routerConfig.ts          # handle 設定檔（as const，具名路由資料層）
+├── routerConfig.ts          # 路由 handle 設定（as const，每個路由物件一個 handle）
+├── tabConfig.ts             # Query Param Tab handle 設定（以路由 handle.key 為索引）
 ├── router.jsx               # 路由結構定義（path 層級 + handle 掛載）
 ├── main.jsx                 # RouterProvider 入口
+├── hooks/
+│   └── useActiveHandle.js   # useMatches + useSearchParams → 解析當前有效 handle
 ├── layouts/
 │   ├── RootLayout.jsx       # 全域 Layout（Navbar、debug bar、Breadcrumb、PageContainer）
 │   ├── UsersLayout.jsx      # /users 巢狀 Layout
