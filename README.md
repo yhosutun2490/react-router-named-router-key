@@ -607,6 +607,12 @@ const TAB_CONTENT = {
 
 ### 模式五：✅ 動態路由 + tabConfig paramKey（舊專案改造，不動 router）
 
+> 💼 **實際案例**：此模式源自公司現有專案的真實需求。
+> 舊系統大量使用動態路由（`path: ':info'`）實現 Tab 切換，URL 結構已固定無法異動，
+> 但隨著專案規模擴大，需要讓各 Tab 擁有獨立 handle key，
+> 以便全域元件（如麵包屑、說明彈窗、權限控制）能夠精確識別當前所在的 Tab 頁面，
+> 同時又不能大規模重構 router，因此研究出此「不動 router、只加 tabConfig」的漸進式改造方案。
+
 **情境**：舊專案已有大量 `path: ':info'` 動態路由，URL 不能改、router.jsx 不想動，但希望 `useMatches()` 能區分各 Tab 的 handle.key。
 
 **核心問題**：
