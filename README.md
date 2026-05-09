@@ -474,6 +474,151 @@ Tab 切換時，需要可以分享/書籤這個 Tab 的連結嗎？
 
 ---
 
+## Tab 設計模式完整比較
+
+### 四種模式一覽
+
+| | ❌ 動態路由 `:info` | ✅ 靜態子路由 | ✅ Query Param + tabConfig | ✅ 純 UI State |
+|---|---|---|---|---|
+| **URL** | `/users/1/orders` | `/users/1/orders` | `/users/1?tab=orders` | `/users/1`（不變）|
+| **路由數量** | 1 個（共用）| 每 Tab 各一個 | 1 個（父路由）| 1 個 |
+| **handle.key** | 永遠同一個，無法區分 Tab | 每 Tab 獨立 key | 需 tabConfig + useActiveHandle | 維持父路由 key |
+| **active Tab 判斷** | 元件內 `params.info` if/switch | `useMatches()` 最深層 key | `useSearchParams()` + tabConfig | `useState` |
+| **設定來源** | routerConfig（一筆）| routerConfig（每 Tab 一筆）| routerConfig + tabConfig | 無 |
+| **書籤 / 分享** | ✅ 可（但路由設計有問題）| ✅ 可 | ✅ 可 | ❌ 不可 |
+| **重新整理保留 Tab** | ✅ | ✅ | ✅ | ❌ |
+| **Breadcrumb 顯示 Tab** | ❌ 無法（同一路由）| ✅ 自動（useMatches 有各自 pathname）| ❌ 不顯示（URL 沒換路由）| ❌ 不顯示 |
+
+---
+
+### 模式一：❌ 動態路由 `:info`（反模式，不建議）
+
+```
+URL：/users/:id/:info
+```
+
+```jsx
+// router.jsx
+{ path: ':info', element: <UserDetail />, handle: routerConfig['USERS.DETAIL'] }
+//                                                ↑ 三個 Tab 只有一個 handle，無法區分
+
+// UserDetail.jsx — 元件被迫自己判斷
+const { info } = useParams()
+if (info === 'profile') return <Profile />
+if (info === 'orders')  return <Orders />
+// handle.key 永遠是 'users-detail'，PageContainer / Breadcrumb 看不出 Tab
+```
+
+**致命問題**：路由失去語意（`:info` 接受任意字串）、handle 無法各自設定、元件邏輯污染。
+
+---
+
+### 模式二：✅ 靜態子路由（本專案實作）
+
+```
+URL：/users/:id/profile  /users/:id/orders  /users/:id/reviews
+設定：routerConfig（每個 Tab 各一筆）
+判斷：useMatches() 最深層 handle.key = active Tab
+```
+
+```jsx
+// router.jsx — 每個 Tab 獨立路由
+{
+  path: ':id',
+  element: <UserDetail />,
+  handle: routerConfig['USERS.DETAIL'],
+  children: [
+    { index: true,    element: <UserProfile />, handle: routerConfig['USERS.DETAIL.PROFILE'] },
+    { path: 'orders', element: <UserOrders />,  handle: routerConfig['USERS.DETAIL.ORDERS'] },
+  ],
+}
+
+// UserDetail.jsx — 元件零判斷
+const activeKey = [...useMatches()].reverse().find(m => m.handle?.key)?.handle?.key
+<Tabs activeKey={activeKey} onChange={key => navigate(key)} />
+<Outlet />
+```
+
+**最適合**：各 Tab 資料來源不同、需要書籤化、需要 Breadcrumb 顯示到 Tab 層級。
+
+---
+
+### 模式三：✅ Query Param + tabConfig（同一路由，URL 記錄 Tab）
+
+```
+URL：/users/:id?tab=orders
+設定：routerConfig（父路由一筆）+ tabConfig（Tab handle 群組）
+判斷：useActiveHandle() = useMatches() + useSearchParams() + tabConfig 查詢
+```
+
+```ts
+// tabConfig.ts — Tab handle 獨立管理，不污染 routerConfig
+const tabConfig = {
+  'users-detail': {          // ← 以路由 handle.key 為索引
+    defaultTab: 'profile',
+    tabs: {
+      profile: { key: 'users-detail-profile', title: '個人資料', description: '...' },
+      orders:  { key: 'users-detail-orders',  title: '購買紀錄', description: '...' },
+    },
+  },
+} as const
+```
+
+```jsx
+// UserDetail.jsx
+const [searchParams, setSearchParams] = useSearchParams()
+const activeTab = searchParams.get('tab') ?? 'profile'
+<Tabs activeKey={activeTab} onChange={key => setSearchParams({ tab: key })} />
+
+// PageContainer 透過 useActiveHandle() 自動取得正確 Tab handle
+// /users/1?tab=orders → handle = { key: 'users-detail-orders', title: '購買紀錄' }
+```
+
+**最適合**：同一份資料不同呈現方式、企業後台設定頁、Dashboard、希望保留 Tab 狀態但不需要 Breadcrumb 細分。
+
+---
+
+### 模式四：✅ 純 UI State（URL 不記錄）
+
+```
+URL：/users/:id（不變）
+設定：無，handle 維持父路由
+判斷：useState
+```
+
+```jsx
+// UserDetail.jsx
+const [activeTab, setActiveTab] = useState('profile')
+
+const TAB_CONTENT = {
+  profile: <UserProfile />,
+  orders:  <UserOrders />,
+  reviews: <UserReviews />,
+}
+
+<Tabs activeKey={activeTab} onChange={setActiveTab} />
+{TAB_CONTENT[activeTab]}
+// handle.key 永遠是 'users-detail'，PageContainer 顯示的是整頁說明
+```
+
+**最適合**：彈窗內的 Tab、側邊欄輔助資訊、純前端顯示控制、不需要任何 URL 記錄。
+
+---
+
+### handle.key 在各模式的能見度
+
+```
+模式               PageContainer      Breadcrumb         useMatches 深度
+─────────────────  ────────────────   ────────────────   ──────────────────
+靜態子路由          ✅ Tab 獨立 key    ✅ 顯示到 Tab       ROOT > USERS > USERS.DETAIL > USERS.DETAIL.ORDERS
+Query Param         ✅ Tab 獨立 key    ❌ 只到父路由        ROOT > USERS > USERS.DETAIL
+  (useActiveHandle) (tabConfig 補足)
+純 UI State         ❌ 只有父路由 key  ❌ 只到父路由        ROOT > USERS > USERS.DETAIL
+動態 :info          ❌ 只有父路由 key  ❌ 路由無法區分      ROOT > USERS > USERS.DETAIL（不變）
+```
+
+---
+
 ## 元件說明
 
 ### PageContainer（全域）
