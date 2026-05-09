@@ -67,17 +67,42 @@ navigate(generatePath('/products/:category', { category }))
 
 ## 路由結構
 
+### UI 層級（巢狀 Layout 繼承關係）
+
 ```
-/                          ROOT     → RootLayout
-├── (index)                HOME     → Home
-├── /about                 ABOUT    → About
-├── /users                 USERS    → UsersLayout
-│   ├── (index)            USERS.LIST    → UsersList
-│   └── /:id               USERS.DETAIL  → UserDetail
-└── /products              PRODUCTS → ProductsLayout
-    ├── (index)            PRODUCTS.LIST     → ProductsList
-    └── /:category         PRODUCTS.CATEGORY → ProductCategory
+RootLayout  path: /
+├── Home                        path: /
+├── About                       path: /about
+├── UsersLayout     (pathless)
+│   ├── UsersList               path: /users
+│   └── UserDetail  (pathless)
+│       ├── UserProfile         path: /users/:id
+│       ├── UserOrders          path: /users/:id/orders
+│       └── UserReviews         path: /users/:id/reviews
+└── ProductsLayout  (pathless)
+    ├── ProductsList            path: /products
+    └── ProductCategory         path: /products/:category
 ```
+
+> **Pathless layout**：`UsersLayout`、`UserDetail`、`ProductsLayout` 不指定 path，
+> 只負責包裝 UI（側邊欄、Tabs）。子路由皆使用來自 `routerConfig` 的完整絕對路徑。
+
+### routerConfig KEY 對應完整路徑
+
+| KEY | handle.key | path |
+|-----|-----------|------|
+| `ROOT` | `root` | `/` |
+| `HOME` | `home` | `/` |
+| `ABOUT` | `about` | `/about` |
+| `USERS` | `users` | `/users` |
+| `USERS.LIST` | `users-list` | `/users` |
+| `USERS.DETAIL` | `users-detail` | `/users/:id` |
+| `USERS.DETAIL.PROFILE` | `users-detail-profile` | `/users/:id` |
+| `USERS.DETAIL.ORDERS` | `users-detail-orders` | `/users/:id/orders` |
+| `USERS.DETAIL.REVIEWS` | `users-detail-reviews` | `/users/:id/reviews` |
+| `PRODUCTS` | `products` | `/products` |
+| `PRODUCTS.LIST` | `products-list` | `/products` |
+| `PRODUCTS.CATEGORY` | `products-category` | `/products/:category` |
 
 ---
 
