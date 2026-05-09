@@ -317,6 +317,114 @@ const activeKey = [...matches].reverse().find(m => m.handle?.key)?.handle?.key
 
 ---
 
+## Tab 是路由狀態還是 UI 狀態？
+
+企業專案中常見的另一種模式：**Tab 點擊只切換元件，URL 不跟著換路由**。
+這與上面的「靜態子路由 Tab」是不同的設計，兩者都合法，差異在於 **Tab 代表什麼**。
+
+### 三種模式比較
+
+| 模式 | URL 變化 | handle.key | 適用情境 |
+|------|---------|-----------|---------|
+| **靜態子路由** | `/users/1` → `/users/1/orders` | 每個 Tab 有獨立 handle | Tab 代表不同頁面，需要書籤化、分享連結 |
+| **Query Param** | `/users/1` → `/users/1?tab=orders` | 維持父路由 handle | Tab 是頁面內的顯示偏好，URL 需記錄狀態 |
+| **純 UI State** | URL 不變 | 維持父路由 handle | Tab 純屬前端顯示控制，不需要 URL 紀錄 |
+
+---
+
+### 模式一：靜態子路由（本專案實作）
+
+每個 Tab 是獨立路由，handle 各自設定，`useMatches()` 決定 active tab。
+
+```
+適合：個人資料 / 購買紀錄 / 評論紀錄
+→ 每個 Tab 資料來源不同、可獨立書籤、可直接分享連結給他人
+```
+
+---
+
+### 模式二：Query Param Tab（URL 記錄但不換路由）
+
+企業專案常見做法，同一路由下用 `?tab=xxx` 記錄 Tab 狀態。
+
+```
+/users/1?tab=profile   → 個人資料
+/users/1?tab=orders    → 購買紀錄
+/users/1?tab=reviews   → 評論紀錄
+```
+
+```jsx
+// UserDetail.jsx
+import { useSearchParams } from 'react-router-dom'
+
+const TAB_KEYS = {
+  profile: 'profile',
+  orders:  'orders',
+  reviews: 'reviews',
+}
+
+export default function UserDetail() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') ?? TAB_KEYS.profile
+
+  // handle.key 維持 'users-detail'（父路由），不區分 Tab
+  // Tab 狀態由 searchParams 管理，與路由 handle 無關
+
+  return (
+    <Tabs
+      activeKey={activeTab}
+      onChange={(key) => setSearchParams({ tab: key })}
+      items={[
+        { key: TAB_KEYS.profile, label: '個人資料', children: <UserProfile /> },
+        { key: TAB_KEYS.orders,  label: '購買紀錄', children: <UserOrders /> },
+        { key: TAB_KEYS.reviews, label: '評論紀錄', children: <UserReviews /> },
+      ]}
+    />
+  )
+}
+```
+
+**handle.key 在此模式的角色：**
+- `useMatches()` 只會看到 `USERS.DETAIL` 這一層，Tab 的切換對 handle 完全透明
+- Breadcrumb 只顯示到「詳細資訊」，不會顯示 Tab 名稱
+- PageContainer 的 FloatButton 說明對應的是整個詳細頁，而非個別 Tab
+
+```
+適合：後台管理系統的設定頁、Dashboard 的顯示切換
+→ 同一份資料，只是呈現方式不同；重新整理後希望停留在同一個 Tab
+```
+
+---
+
+### 模式三：純 UI State（URL 不記錄）
+
+Tab 狀態完全由元件內部 `useState` 管理，URL 不變。
+
+```jsx
+const [activeTab, setActiveTab] = useState('profile')
+```
+
+```
+適合：彈窗內的 Tab、側邊欄的切換、不需要書籤化的輔助資訊
+→ Tab 只是 UI 的顯示控制，對業務邏輯無意義
+```
+
+---
+
+### 決策流程
+
+```
+Tab 切換時，需要可以分享/書籤這個 Tab 的連結嗎？
+│
+├── 是 → 各 Tab 的資料來源是否完全獨立？
+│        ├── 是 → 靜態子路由（useMatches handle.key）
+│        └── 否 → Query Param（useSearchParams）
+│
+└── 否 → 純 UI State（useState）
+```
+
+---
+
 ## 元件說明
 
 ### PageContainer（全域）
