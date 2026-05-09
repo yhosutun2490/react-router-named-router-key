@@ -30,8 +30,8 @@ navigate('/users/profile')
 
 ```jsx
 // ✅ 以 KEY 導航，與 URL 解耦
-navigate(routePaths['products-list'])
-navigate(generatePath('/products/:category', { category }))
+navigateByKey('products-list')
+navigateByKey('products-category', { category })
 ```
 
 **核心思想**：元件只認識 KEY，不認識 URL。URL 要改，只改 `router.jsx` 一個地方，所有使用 KEY 的地方自動對應到新路徑，不需要到處搜尋替換。
@@ -877,7 +877,7 @@ src/
 ├── tabConfig.ts             # Query Param Tab handle 設定（以路由 handle.key 為索引）
 ├── router.jsx               # 路由結構定義（path 層級 + handle 掛載）
 ├── main.jsx                 # RouterProvider 入口
-├── routePaths.ts            # handle key → path pattern 對應表（跨層導航用）
+├── routePaths.ts            # getPathByKey 查詢函式（path 統一存於 routerConfig，此檔只含查詢邏輯）
 ├── hooks/
 │   ├── useActiveHandle.js   # useMatches + useSearchParams → 解析當前有效 handle
 │   └── useNavigateByKey.js  # navigateByKey(key, params) → 以 key 跨層導航
