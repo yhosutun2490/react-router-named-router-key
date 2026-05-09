@@ -353,41 +353,73 @@ const activeKey = [...matches].reverse().find(m => m.handle?.key)?.handle?.key
 /users/1?tab=reviews   → 評論紀錄
 ```
 
-```jsx
-// UserDetail.jsx
-import { useSearchParams } from 'react-router-dom'
+#### 問題：useMatches() 只看到父路由，每個 Tab 無法有獨立 handle.key
 
-const TAB_KEYS = {
-  profile: 'profile',
-  orders:  'orders',
-  reviews: 'reviews',
-}
+```
+/users/1?tab=orders 時：
+  useMatches() → [..., { handle: { key: 'users-detail' } }]  ← Tab 切換對路由完全透明
+                                                               ← 永遠只有父路由的 key
+```
 
-export default function UserDetail() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const activeTab = searchParams.get('tab') ?? TAB_KEYS.profile
+#### 解法：把 Tab handle 巢狀放在父路由 handle 的 `tabs` 欄位
 
-  // handle.key 維持 'users-detail'（父路由），不區分 Tab
-  // Tab 狀態由 searchParams 管理，與路由 handle 無關
+```ts
+// routerConfig.ts
+'USERS.DETAIL': {
+  key: 'users-detail',
+  title: '詳細資訊',
+  tabs: {                              // ← Query Param Tab 的 handle 定義在這
+    profile: { key: 'users-detail-profile', title: '個人資料', description: '...' },
+    orders:  { key: 'users-detail-orders',  title: '購買紀錄', description: '...' },
+    reviews: { key: 'users-detail-reviews', title: '評論紀錄', description: '...' },
+  },
+},
+```
 
-  return (
-    <Tabs
-      activeKey={activeTab}
-      onChange={(key) => setSearchParams({ tab: key })}
-      items={[
-        { key: TAB_KEYS.profile, label: '個人資料', children: <UserProfile /> },
-        { key: TAB_KEYS.orders,  label: '購買紀錄', children: <UserOrders /> },
-        { key: TAB_KEYS.reviews, label: '評論紀錄', children: <UserReviews /> },
-      ]}
-    />
-  )
+#### useActiveHandle — 同時讀取 useMatches + useSearchParams
+
+```js
+// hooks/useActiveHandle.js
+export function useActiveHandle() {
+  const matches = useMatches()
+  const [searchParams] = useSearchParams()
+
+  const currentMatch = [...matches].reverse().find((m) => m.handle?.key)
+  const routeHandle = currentMatch?.handle
+
+  // 若 handle 有 tabs 且 URL 帶有 ?tab=xxx，回傳 Tab 的獨立 handle
+  const tabKey = searchParams.get('tab')
+  if (tabKey && routeHandle?.tabs?.[tabKey]) {
+    return routeHandle.tabs[tabKey]
+  }
+
+  return routeHandle ?? null
 }
 ```
 
-**handle.key 在此模式的角色：**
-- `useMatches()` 只會看到 `USERS.DETAIL` 這一層，Tab 的切換對 handle 完全透明
-- Breadcrumb 只顯示到「詳細資訊」，不會顯示 Tab 名稱
-- PageContainer 的 FloatButton 說明對應的是整個詳細頁，而非個別 Tab
+```
+/users/1               → useActiveHandle() = { key: 'users-detail', ... }
+/users/1?tab=orders    → useActiveHandle() = { key: 'users-detail-orders', title: '購買紀錄', ... }
+/users/1?tab=reviews   → useActiveHandle() = { key: 'users-detail-reviews', title: '評論紀錄', ... }
+```
+
+`PageContainer` 改用 `useActiveHandle()`，兩種 Tab 模式均能正確顯示各自 handle 的說明。
+
+```jsx
+// UserDetail.jsx — Query Param 版本
+const [searchParams, setSearchParams] = useSearchParams()
+const activeTab = searchParams.get('tab') ?? 'profile'
+
+<Tabs
+  activeKey={activeTab}
+  onChange={(key) => setSearchParams({ tab: key })}
+  items={[
+    { key: 'profile', label: '個人資料', children: <UserProfile /> },
+    { key: 'orders',  label: '購買紀錄', children: <UserOrders /> },
+    { key: 'reviews', label: '評論紀錄', children: <UserReviews /> },
+  ]}
+/>
+```
 
 ```
 適合：後台管理系統的設定頁、Dashboard 的顯示切換
