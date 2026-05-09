@@ -4,27 +4,28 @@ import tabConfig from '../tabConfig'
 /**
  * useActiveHandle — 取得當前頁面的有效 handle
  *
- * 設定來源分離：
+ * 設定來源：
  *   routerConfig  → 路由層級 handle，由 useMatches() 取得
- *   tabConfig     → Query Param Tab handle，以路由 handle.key 為索引查詢
+ *   tabConfig     → Tab handle 群組，以路由 handle.key 為索引
  *
- * 判斷邏輯（優先序）：
- *  1. useMatches() 取最深層有 handle.key 的路由 handle
- *  2. 以該 handle.key 查詢 tabConfig，若存在對應的 tabs 設定，
- *     再以 ?tab=xxx 取出該 Tab 的獨立 handle
- *  3. 否則回傳路由本身的 handle
+ * 支援三種模式（優先序由上到下）：
  *
- * 兩種模式均相容：
+ *  1. 靜態子路由（/users/:id/orders）
+ *     useMatches 最深層直接是 USERS.DETAIL.ORDERS
+ *     tabConfig 查不到 → 直接回傳路由 handle
+ *     → { key: 'users-detail-orders' }
  *
- *  靜態子路由（/users/:id/orders）
- *    useMatches 最深層 = USERS.DETAIL.ORDERS
- *    tabConfig 無此 key → 直接回傳路由 handle
- *    → { key: 'users-detail-orders', title: '購買紀錄' }
+ *  2. 動態路由 Tab，tabConfig 有 paramKey（舊專案 /users/:id/:info）
+ *     useMatches 最深層 = 'legacy-user-detail'
+ *     tabConfig['legacy-user-detail'].paramKey = 'info'
+ *     → 從 match.params['info'] 取 Tab key（不讀 searchParams）
+ *     → { key: 'legacy-user-detail-orders' }
  *
- *  Query Param Tab（/users/:id?tab=orders）
- *    useMatches 最深層 = USERS.DETAIL
- *    tabConfig['users-detail'].tabs['orders'] 存在
- *    → { key: 'users-detail-orders', title: '購買紀錄' }
+ *  3. Query Param Tab，tabConfig 無 paramKey（/users/:id?tab=orders）
+ *     useMatches 最深層 = 'users-detail'
+ *     tabConfig['users-detail'] 無 paramKey
+ *     → 從 searchParams.get('tab') 取 Tab key
+ *     → { key: 'users-detail-orders' }
  */
 export function useActiveHandle() {
   const matches = useMatches()
@@ -35,10 +36,14 @@ export function useActiveHandle() {
 
   if (!routeHandle) return null
 
-  // 以路由 handle.key 查 tabConfig，確認此路由是否有 QP Tab 設定
   const tabConfigEntry = tabConfig[routeHandle.key]
   if (tabConfigEntry) {
-    const tabKey = searchParams.get('tab') ?? tabConfigEntry.defaultTab
+    // 模式 B：paramKey 存在 → 從 route params 取 Tab key（動態路由舊專案）
+    // 模式 A：無 paramKey  → 從 searchParams 取 Tab key（Query Param）
+    const tabKey = tabConfigEntry.paramKey
+      ? (currentMatch.params[tabConfigEntry.paramKey] ?? tabConfigEntry.defaultTab)
+      : (searchParams.get('tab') ?? tabConfigEntry.defaultTab)
+
     const tabHandle = tabConfigEntry.tabs[tabKey]
     if (tabHandle) return tabHandle
   }

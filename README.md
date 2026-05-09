@@ -478,16 +478,16 @@ Tab 切換時，需要可以分享/書籤這個 Tab 的連結嗎？
 
 ### 四種模式一覽
 
-| | ❌ 動態路由 `:info` | ✅ 靜態子路由 | ✅ Query Param + tabConfig | ✅ 純 UI State |
-|---|---|---|---|---|
-| **URL** | `/users/1/orders` | `/users/1/orders` | `/users/1?tab=orders` | `/users/1`（不變）|
-| **路由數量** | 1 個（共用）| 每 Tab 各一個 | 1 個（父路由）| 1 個 |
-| **handle.key** | 永遠同一個，無法區分 Tab | 每 Tab 獨立 key | 需 tabConfig + useActiveHandle | 維持父路由 key |
-| **active Tab 判斷** | 元件內 `params.info` if/switch | `useMatches()` 最深層 key | `useSearchParams()` + tabConfig | `useState` |
-| **設定來源** | routerConfig（一筆）| routerConfig（每 Tab 一筆）| routerConfig + tabConfig | 無 |
-| **書籤 / 分享** | ✅ 可（但路由設計有問題）| ✅ 可 | ✅ 可 | ❌ 不可 |
-| **重新整理保留 Tab** | ✅ | ✅ | ✅ | ❌ |
-| **Breadcrumb 顯示 Tab** | ❌ 無法（同一路由）| ✅ 自動（useMatches 有各自 pathname）| ❌ 不顯示（URL 沒換路由）| ❌ 不顯示 |
+| | ❌ 動態路由 `:info` | ✅ 靜態子路由 | ✅ Query Param + tabConfig | ✅ 純 UI State | ✅ 動態路由 + paramKey |
+|---|---|---|---|---|---|
+| **URL** | `/users/1/orders` | `/users/1/orders` | `/users/1?tab=orders` | `/users/1`（不變）| `/users/1/orders`（不動）|
+| **路由數量** | 1 個（共用）| 每 Tab 各一個 | 1 個（父路由）| 1 個 | 1 個（不動）|
+| **handle.key 區分 Tab** | ❌ 無法 | ✅ 各自獨立 | ✅ tabConfig 補足 | ❌ 無法 | ✅ tabConfig paramKey 補足 |
+| **active Tab 判斷** | 元件 `params` if/switch | `useMatches()` 最深層 | `useSearchParams()` + tabConfig | `useState` | `useActiveHandle()` + tabConfig |
+| **需改 router.jsx** | — | ✅ 需改 | 不需 | 不需 | **不需**（舊專案福音）|
+| **書籤 / 分享** | ✅ | ✅ | ✅ | ❌ | ✅ |
+| **重新整理保留 Tab** | ✅ | ✅ | ✅ | ❌ | ✅ |
+| **Breadcrumb 顯示 Tab** | ❌ | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
@@ -602,6 +602,64 @@ const TAB_CONTENT = {
 ```
 
 **最適合**：彈窗內的 Tab、側邊欄輔助資訊、純前端顯示控制、不需要任何 URL 記錄。
+
+---
+
+### 模式五：✅ 動態路由 + tabConfig paramKey（舊專案改造，不動 router）
+
+**情境**：舊專案已有大量 `path: ':info'` 動態路由，URL 不能改、router.jsx 不想動，但希望 `useMatches()` 能區分各 Tab 的 handle.key。
+
+**核心問題**：
+
+```
+// 舊 router.jsx（不動它）
+{ path: ':info', element: <UserDetail />, handle: { key: 'legacy-user-detail' } }
+
+// useMatches() 在 /users/1/orders 時：
+// { handle: { key: 'legacy-user-detail' }, params: { id: '1', info: 'orders' } }
+//                ↑ handle 靜態，看不出 Tab                ↑ 但 params 有值！
+```
+
+`useMatches()` 的 `handle.key` 永遠相同，但 `params.info` 已包含 Tab 資訊，只是沒有被利用。
+
+**解法**：在 `tabConfig` 加 `paramKey`，告訴 `useActiveHandle` 從哪個 param 讀 Tab key：
+
+```ts
+// tabConfig.ts — 只加這一筆，不改 router.jsx
+const tabConfig = {
+  'legacy-user-detail': {
+    paramKey: 'info',      // ← 從 match.params['info'] 取 Tab key
+    defaultTab: 'profile',
+    tabs: {
+      profile: { key: 'legacy-user-detail-profile', title: '個人資料', description: '...' },
+      orders:  { key: 'legacy-user-detail-orders',  title: '購買紀錄', description: '...' },
+      reviews: { key: 'legacy-user-detail-reviews', title: '評論紀錄', description: '...' },
+    },
+  },
+} as const
+```
+
+```js
+// useActiveHandle.js — paramKey 分支
+const tabKey = tabConfigEntry.paramKey
+  ? currentMatch.params[tabConfigEntry.paramKey]  // 動態路由：從 params 取
+  : searchParams.get('tab')                        // Query Param：從 searchParams 取
+```
+
+**改造前後對比**：
+
+```
+改造前（只有 router.jsx）
+  /users/1/profile → useMatches key = 'legacy-user-detail'  ❌ 無法區分
+  /users/1/orders  → useMatches key = 'legacy-user-detail'  ❌ 無法區分
+
+改造後（加 tabConfig paramKey，router.jsx 不動）
+  /users/1/profile → useActiveHandle key = 'legacy-user-detail-profile'  ✅
+  /users/1/orders  → useActiveHandle key = 'legacy-user-detail-orders'   ✅
+  /users/1/reviews → useActiveHandle key = 'legacy-user-detail-reviews'  ✅
+```
+
+**改造成本**：只需在 `tabConfig.ts` 新增一筆設定，無需修改 router.jsx 或任何頁面元件。
 
 ---
 
