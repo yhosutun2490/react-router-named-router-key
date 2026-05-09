@@ -474,6 +474,68 @@ Tab 切換時，需要可以分享/書籤這個 Tab 的連結嗎？
 
 ---
 
+## useActiveHandle 的架構本質：依賴注入（DI）
+
+這整個 handle 解析機制，本質上是一種**依賴注入模式（Dependency Injection）**應用在路由層級上。
+
+### 角色對應
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     消費者（Consumer）                        │
+│  PageContainer / Breadcrumb / 任何需要 handle 的元件          │
+│  → 只呼叫 useActiveHandle()，不知道 handle 從哪來             │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ 注入
+┌──────────────────────────▼──────────────────────────────────┐
+│                   注入器（Injector）                          │
+│  useActiveHandle()                                           │
+│  → 根據當前路由層級的上下文，決定要注入哪個 handle             │
+│  → 消費者對解析邏輯完全透明                                   │
+└──────┬───────────────────┬───────────────────┬──────────────┘
+       │                   │                   │
+       ▼                   ▼                   ▼
+ useMatches()        useSearchParams()    tabConfig
+ 路由層級 handle      ?tab= 值             注入規則設定檔
+ （靜態，來自          （動態，來自 URL）    paramKey / tabs 對應
+  router.jsx）
+```
+
+### 注入規則（tabConfig 的角色）
+
+```
+tabConfig 定義了「哪些路由需要進一步解析 handle」以及「解析規則」：
+
+entry 存在？
+  ├── 有 paramKey → 從 match.params[paramKey] 取 Tab key
+  │                 （動態路由舊專案，每個層級 params 帶入實際值）
+  ├── 無 paramKey → 從 searchParams.get('tab') 取 Tab key
+  │                 （Query Param 模式）
+  └── entry 不存在 → 直接回傳路由 handle
+                    （靜態子路由 / 普通頁面，不需要額外解析）
+```
+
+### 為什麼說「某些層級有動態 Tab，再加一層依賴注入去判斷」
+
+路由樹本身是靜態結構（router.jsx），但 Tab 狀態是動態的（來自 URL params 或 query）。`useActiveHandle` 在靜態路由層級與動態 URL 狀態之間扮演橋接角色：
+
+```
+靜態層（router.jsx）          動態層（URL runtime）
+─────────────────────         ─────────────────────
+path: ':info'                 params.info = 'orders'（執行期）
+handle: { key: 'legacy' }     → tabConfig['legacy'].tabs['orders']
+                                    ↓
+                            注入正確的 Tab handle 給消費者
+```
+
+這讓各層關注點分離：
+- **router.jsx**：只管路由結構
+- **tabConfig**：只管 Tab handle 的對應規則
+- **useActiveHandle**：只管解析邏輯
+- **PageContainer / Breadcrumb**：只管顯示，完全不感知解析細節
+
+---
+
 ## Tab 設計模式完整比較
 
 ### 四種模式一覽
