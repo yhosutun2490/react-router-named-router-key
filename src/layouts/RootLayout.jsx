@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useMatches } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
+import Breadcrumb from '../components/Breadcrumb'
 
 export default function RootLayout() {
   const matches = useMatches()
@@ -15,42 +16,30 @@ export default function RootLayout() {
         <div className="max-w-4xl mx-auto px-6 py-4 flex gap-6 items-center">
           <span className="font-bold text-gray-800 text-lg">RouterTest</span>
           <div className="flex gap-4">
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) =>
-                `text-sm font-medium transition-colors ${
-                  isActive ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'
-                }`
-              }
-            >
-              Home
-            </NavLink>
-            <NavLink
-              to="/about"
-              className={({ isActive }) =>
-                `text-sm font-medium transition-colors ${
-                  isActive ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'
-                }`
-              }
-            >
-              About
-            </NavLink>
-            <NavLink
-              to="/users"
-              className={({ isActive }) =>
-                `text-sm font-medium transition-colors ${
-                  isActive ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'
-                }`
-              }
-            >
-              Users
-            </NavLink>
+            {[
+              { to: '/', label: 'Home', end: true },
+              { to: '/about', label: 'About' },
+              { to: '/users', label: 'Users' },
+              { to: '/products', label: 'Products' },
+            ].map(({ to, label, end }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  `text-sm font-medium transition-colors ${
+                    isActive ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'
+                  }`
+                }
+              >
+                {label}
+              </NavLink>
+            ))}
           </div>
         </div>
       </nav>
 
-      {/* useMatches — 完整 key 鏈（所有已 match 的路由） */}
+      {/* useMatches — 完整 key 鏈 */}
       <div className="bg-gray-900 font-mono text-xs px-6 py-2 flex items-center gap-2">
         <span className="text-gray-500">useMatches keys:</span>
         <div className="flex items-center gap-1">
@@ -63,8 +52,11 @@ export default function RootLayout() {
         </div>
       </div>
 
-      {/* Page content — PageContainer 全域包一次，所有子頁面自動生效 */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-6 py-8">
+        {/* Breadcrumb — useMatches 讀取各層 handle.title 產生導航 */}
+        <Breadcrumb />
+
+        {/* PageContainer 全域包一次 */}
         <PageContainer>
           <Outlet />
         </PageContainer>
