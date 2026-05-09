@@ -5,6 +5,53 @@
 
 ---
 
+## 研究動機：為什麼不直接寫死 URL？
+
+### 問題：URL 耦合導致大型專案的維護噩夢
+
+在一般實作中，導航通常直接寫死路徑字串：
+
+```jsx
+// ❌ 直接耦合 URL
+navigate('/users/profile')
+<Link to="/products/electronics">電子產品</Link>
+```
+
+這在小型專案不是問題，但在大型專案會造成：
+
+| 情境 | 後果 |
+|------|------|
+| URL 重新命名（`/users` → `/members`）| 全專案搜尋替換，容易遺漏 |
+| 路由層級調整（`/products/:id` 移到 `/shop/products/:id`）| 所有引用此路徑的元件都需修改 |
+| 多人協作 | 不同人寫出不一致的路徑格式，無法靜態檢查 |
+| 路徑拼錯 | 執行期才會發現 404，無編譯期錯誤提示 |
+
+### 解法：以 KEY 取代 URL，路由設定集中管理
+
+```jsx
+// ✅ 以 KEY 導航，與 URL 解耦
+navigate(routePaths['products-list'])
+navigate(generatePath('/products/:category', { category }))
+```
+
+**核心思想**：元件只認識 KEY，不認識 URL。URL 要改，只改 `router.jsx` 一個地方，所有使用 KEY 的地方自動對應到新路徑，不需要到處搜尋替換。
+
+```
+改 URL 前：所有元件都依賴路徑字串
+  元件A → '/products'
+  元件B → '/products'        全部都要改
+  元件C → '/products'
+
+改 URL 後：所有元件只依賴 KEY
+  元件A → 'products-list'
+  元件B → 'products-list'    只改 router.jsx 一處
+  元件C → 'products-list'
+               ↓
+           router.jsx: path: 'shop/products'  ← 只動這裡
+```
+
+---
+
 ## 技術棧
 
 | 套件 | 用途 |
